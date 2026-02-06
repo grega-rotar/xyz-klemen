@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload Files</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body
+  class="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-100 to-blue-100 flex items-center justify-center p-6">
+
+  <div class="bg-white/70 backdrop-blur-lg shadow-xl rounded-2xl p-8 w-full max-w-md border border-white/40">
+    <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">📁 Upload Files</h2>
+
+    <form action="/upload" method="POST" enctype="multipart/form-data" class="space-y-6">
+      <!-- Add this at the top of your form -->
+      <div>
+        <label for="appName" class="block text-sm font-medium text-gray-700 mb-2">App Name</label>
+        <input type="text" id="appName" name="appName" required placeholder="Enter app name"
+          class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2.5" />
+      </div>
+
+      <!-- TWX .ZIP -->
+      <div>
+        <label for="twxFile" class="block text-sm font-medium text-gray-700 mb-2">TWX (.zip)</label>
+        <input type="file" id="twxFile" name="twxFile" required
+          class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2.5" />
+      </div>
+
+      <!-- Objekti File -->
+      <div>
+        <label for="objektiFile" class="block text-sm font-medium text-gray-700 mb-2">Objekti File (.json)</label>
+        <input type="file" id="objektiFile" name="objektiFile" required
+          class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2.5" />
+      </div>
+
+      <!-- TaskData File -->
+      <div>
+        <label for="taskDataFile" class="block text-sm font-medium text-gray-700 mb-2">TaskData File (.xlsx)</label>
+        <input type="file" id="taskDataFile" name="taskDataFile" required
+          class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2.5" />
+      </div>
+
+      <!-- Submit Button -->
+      <div class="pt-4">
+        <button type="submit"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg shadow-md transition transform hover:scale-[1.02] focus:ring-4 focus:ring-indigo-300">
+          Upload Files
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+</body>
+
+</html>
