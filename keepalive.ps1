@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 public class IdleTimeHelper {
     [DllImport("user32.dll")]
     public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
-    
+
     public static uint GetIdleTime() {
         LASTINPUTINFO lastInputInfo = new LASTINPUTINFO();
         lastInputInfo.cbSize = (uint)Marshal.SizeOf(lastInputInfo);
@@ -23,18 +23,27 @@ public struct LASTINPUTINFO {
 
 # ==================== CONFIGURATION ====================
 $idleThresholdSeconds = 20  # Start jiggling after this many seconds
-$jiggleDistance = 5         # Pixels to move
-$jiggleInterval = 2000      # Milliseconds between jiggles
+$maxRadius = 300            # Max radius of the spiral in pixels
+$minRadius = 100            # Min radius (center point)
+$radiusSteps = 15           # Number of radius increments from min to max
+$pointsPerLoop = 60         # Points per full rotation (smoothness)
+$stepDelayMs = 25           # Milliseconds between each step
 # =======================================================
 
+# Get screen center
+$screenWidth = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width
+$screenHeight = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height
+$centerX = [Math]::Floor($screenWidth / 2)
+$centerY = [Math]::Floor($screenHeight / 2)
+
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Simple Mouse Jiggler v4.0" -ForegroundColor White
+Write-Host "  Spiral Mouse Jiggler v6.0" -ForegroundColor White
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Configuration:" -ForegroundColor Yellow
 Write-Host "- Idle threshold: $idleThresholdSeconds seconds" -ForegroundColor Gray
-Write-Host "- Jiggle distance: $jiggleDistance pixels" -ForegroundColor Gray
-Write-Host "- Jiggle interval: $jiggleInterval ms" -ForegroundColor Gray
+Write-Host "- Spiral radius: $minRadius - $maxRadius pixels" -ForegroundColor Gray
+Write-Host "- Screen center: ($centerX, $centerY)" -ForegroundColor Gray
 Write-Host "- Press Ctrl+C to stop" -ForegroundColor Red
 Write-Host ""
 Write-Host "Status: Monitoring..." -ForegroundColor Green
@@ -42,43 +51,75 @@ Write-Host ""
 
 $isJiggling = $false
 
+# Build spiral path: outward then inward
+function Get-SpiralPath {
+    $path = @()
+    $totalSteps = $radiusSteps * $pointsPerLoop
+
+    # Spiral outward
+    for ($i = 0; $i -lt $totalSteps; $i++) {
+        $progress = $i / $totalSteps
+        $radius = $minRadius + ($maxRadius - $minRadius) * $progress
+        $angle = (2 * [Math]::PI * $i) / $pointsPerLoop
+        $x = [Math]::Round($centerX + $radius * [Math]::Cos($angle))
+        $y = [Math]::Round($centerY + $radius * [Math]::Sin($angle))
+        $path += ,@($x, $y)
+    }
+
+    # Spiral inward
+    for ($i = $totalSteps - 1; $i -ge 0; $i--) {
+        $progress = $i / $totalSteps
+        $radius = $minRadius + ($maxRadius - $minRadius) * $progress
+        $angle = (2 * [Math]::PI * $i) / $pointsPerLoop
+        $x = [Math]::Round($centerX + $radius * [Math]::Cos($angle))
+        $y = [Math]::Round($centerY + $radius * [Math]::Sin($angle))
+        $path += ,@($x, $y)
+    }
+
+    return ,$path
+}
+
+$spiralPath = Get-SpiralPath
+
 while ($true) {
     # Get system idle time
     $systemIdleMs = [IdleTimeHelper]::GetIdleTime()
     $idleSeconds = $systemIdleMs / 1000
-    
+
     # Check if user became active
     if ($systemIdleMs -lt 500 -and $isJiggling) {
         $isJiggling = $false
-        Write-Host "`r[$(Get-Date -Format 'HH:mm:ss')] User active - Jiggling stopped          " -ForegroundColor Yellow
+        Write-Host "`r[$(Get-Date -Format 'HH:mm:ss')] User active - Stopped                      " -ForegroundColor Yellow
         Write-Host ""
     }
-    
+
     # Start jiggling if idle threshold exceeded
     if ($idleSeconds -ge $idleThresholdSeconds -and -not $isJiggling) {
         $isJiggling = $true
-        Write-Host "`r[$(Get-Date -Format 'HH:mm:ss')] Idle detected - Starting jiggle          " -ForegroundColor Green
+        Write-Host "`r[$(Get-Date -Format 'HH:mm:ss')] Idle detected - Starting spiral             " -ForegroundColor Green
         Write-Host ""
     }
-    
-    # Perform jiggle if active
+
+    # Perform spiral if active
     if ($isJiggling) {
-        $currentPos = [System.Windows.Forms.Cursor]::Position
-        
-        # Move right
-        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(($currentPos.X + $jiggleDistance), $currentPos.Y)
-        Start-Sleep -Milliseconds 100
-        
-        # Move left
-        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(($currentPos.X - $jiggleDistance), $currentPos.Y)
-        Start-Sleep -Milliseconds 100
-        
-        # Move back to original
-        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($currentPos.X, $currentPos.Y)
-        
-        Write-Host "`r[$(Get-Date -Format 'HH:mm:ss')] JIGGLING | Idle: $([Math]::Floor($idleSeconds))s    " -NoNewline -ForegroundColor Cyan
-        
-        Start-Sleep -Milliseconds $jiggleInterval
+        foreach ($point in $spiralPath) {
+            # Check if user became active mid-spiral
+            $checkIdle = [IdleTimeHelper]::GetIdleTime()
+            if ($checkIdle -lt 500) {
+                $isJiggling = $false
+                Write-Host "`r[$(Get-Date -Format 'HH:mm:ss')] User active - Stopped                      " -ForegroundColor Yellow
+                Write-Host ""
+                break
+            }
+
+            [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($point[0], $point[1])
+            Start-Sleep -Milliseconds $stepDelayMs
+        }
+
+        if ($isJiggling) {
+            $idleNow = [Math]::Floor([IdleTimeHelper]::GetIdleTime() / 1000)
+            Write-Host "`r[$(Get-Date -Format 'HH:mm:ss')] SPIRALING | Idle: ${idleNow}s    " -NoNewline -ForegroundColor Cyan
+        }
     }
     else {
         # Monitor idle time
